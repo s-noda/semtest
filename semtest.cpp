@@ -4,16 +4,18 @@
 #include <sys/sem.h>
 #include <chrono>
 #include <thread>
+// #include <errno.h>
 
-void lock(int semid){
+int lock(int semid){
+  struct timespec ts; ts.tv_sec=1; ts.tv_nsec=100*1000;
   struct sembuf sb; sb.sem_num=0; sb.sem_op=-1; sb.sem_flg=0;
-  if(semop(semid,&sb,1) == -1){
-    std::cout << "lock failed" << std::endl; exit(1); }}
+  return semtimedop(semid,&sb,1,&ts); }
 
-void unlock(int semid){
+int unlock(int semid){
+  // struct timespec ts; ts.tv_sec=0; ts.tv_nsec=1000*1000*1000;
   struct sembuf sb; sb.sem_num=0; sb.sem_op=+1; sb.sem_flg=0;
-  if(semop(semid,&sb,1) == -1){
-    std::cout << "unlock failed" << std::endl; exit(1); }}
+  // semtimedop(semid,&sb,1,&ts);
+  return semop(semid,&sb,1); }
 
 int main (int argc, char** argv) {
   int semid;
@@ -26,13 +28,15 @@ int main (int argc, char** argv) {
   if ( argc == 1 ) unlock(semid);
 
   while ( true ) {
-    lock(semid);
-    std::cout << name << ": " << (_cnt++) << std::endl;
-    std::cout << name << " start" << std::endl;
-    std::chrono::milliseconds dura( 3000 );
-    std::this_thread::sleep_for( dura );
-    std::cout << name << " done" << std::endl;
-    unlock(semid); }
+    if ( lock(semid) != 0 ) {
+      std::cout << name << " : lock time outed" << std::endl;
+    } else {
+      std::cout << name << " start" << std::endl;
+      std::cout << name << ": " << (_cnt++) << std::endl;
+      std::chrono::milliseconds dura( 3000 );
+      std::this_thread::sleep_for( dura );
+      std::cout << name << " done" << std::endl;
+      unlock(semid); }}
 
   return 100;
 }
