@@ -4,18 +4,16 @@
 #include <sys/sem.h>
 #include <chrono>
 #include <thread>
-// #include <errno.h>
+#include <assert.h>
 
-int lock(int semid){
-  struct timespec ts; ts.tv_sec=1; ts.tv_nsec=100*1000;
-  struct sembuf sb; sb.sem_num=0; sb.sem_op=-1; sb.sem_flg=0;
-  return semtimedop(semid,&sb,1,&ts); }
+bool lock(int semid){
+  struct timespec ts1s = {0, 100*1000};
+  struct sembuf sblock = {0, -1, 0};
+  return (semtimedop(semid,&sblock,1,&ts1s) == 0); }
 
-int unlock(int semid){
-  // struct timespec ts; ts.tv_sec=0; ts.tv_nsec=1000*1000*1000;
-  struct sembuf sb; sb.sem_num=0; sb.sem_op=+1; sb.sem_flg=0;
-  // semtimedop(semid,&sb,1,&ts);
-  return semop(semid,&sb,1); }
+bool unlock(int semid) {
+  struct sembuf sbunlock = {0, +1, 0};
+  return (semtimedop(semid,&sbunlock,1, NULL) == 0); }
 
 int main (int argc, char** argv) {
   int semid;
@@ -28,15 +26,13 @@ int main (int argc, char** argv) {
   if ( argc == 1 ) unlock(semid);
 
   while ( true ) {
-    if ( lock(semid) != 0 ) {
-      std::cout << name << " : lock time outed" << std::endl;
+    if ( ! lock(semid) ) {
+      // std::cout << name << " : lock time outed" << std::endl;
     } else {
-      std::cout << name << " start" << std::endl;
-      std::cout << name << ": " << (_cnt++) << std::endl;
+      std::cout << name << " start(" << (++_cnt) << ")" << std::endl;
       std::chrono::milliseconds dura( 3000 );
       std::this_thread::sleep_for( dura );
-      std::cout << name << " done" << std::endl;
-      unlock(semid); }}
-
+      std::cout << name << " done (" << _cnt << ")" << std::endl;
+      assert(unlock(semid)); }}
   return 100;
 }
